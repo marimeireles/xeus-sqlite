@@ -111,12 +111,12 @@ void interpreter::load_db(const std::vector<std::string> tokenized_code)
         }
         else
         {
-            publish_stream("stdout", "Wasn't able to load the database correctly.");
+            publish_execution_error("Error:", "Wasn't able to load the database correctly.");
         }
     }
     catch (const std::runtime_error& err)
     {
-        publish_stream("stderr", err.what());
+        publish_execution_error("Error:", err.what());
     }
 }
 
@@ -132,12 +132,10 @@ void interpreter::create_db(const std::vector<std::string> tokenized_code)
 
         // Create the database
         m_db = std::make_unique<SQLite::Database>(m_db_path, SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE);
-
-        publish_stream("stdout", "Database " + m_db_path + " was created.\n");
     }
     catch(const std::runtime_error& err)
     {
-        publish_stream("stderr", err.what());
+        publish_execution_error("Error:", err.what());
     }
 }
 
@@ -149,24 +147,23 @@ void interpreter::delete_db()
 
     if(std::remove(m_db_path.c_str()) != 0)
     {
-        publish_stream("stderr", "Error deleting file.\n");
+        publish_execution_error("Error:", "Error deleting file.");
     }
     else
     {
         m_bd_is_loaded = false;
-        publish_stream("stdout", "File successfully deleted.\n");
     }
 }
 
 void interpreter::table_exists(const std::string table_name)
 {
-    if (m_db->SQLite::Database::tableExists(table_name.c_str()))
+    try
     {
-        publish_stream("stdout", "The table " + table_name + " exists.\n");
+        m_db->SQLite::Database::tableExists(table_name.c_str())
     }
-    else
+    catch(const std::runtime_error& err)
     {
-        publish_stream("stdout", "The table " + table_name + " doesn't exist.\n");
+        publish_execution_error("Error:", "Table " + table_name + " doesn't exist.");
     }
 }
 
@@ -218,7 +215,7 @@ void interpreter::backup(std::string backup_type)
 {
     if (backup_type.size() > 1 && (int)backup_type[0] <= 1)
     {
-        publish_stream("stderr", "This is not a valid backup type.\n");
+        publish_execution_error("Error:", "This is not a valid backup type.");
     }
     else
     {
@@ -236,7 +233,7 @@ void interpreter::parse_code(const std::vector<std::string>& tokenized_code)
         std::ifstream path_is_valid(m_db_path);
         if (!path_is_valid.is_open())
         {
-            return publish_stream("stderr", "The path doesn't exist.\n");
+            return publish_execution_error("Error:", "The path doesn't exist.");
         }
         else
         {
@@ -288,7 +285,7 @@ void interpreter::parse_code(const std::vector<std::string>& tokenized_code)
     }
     else
     {
-        publish_stream("stdout", "Load a database to run this command.\n");
+        publish_execution_result(execution_counter, "Load a database to run this command");
     }
 }
 
@@ -375,7 +372,7 @@ nl::json interpreter::execute_request_impl(int execution_counter,
         jresult["status"] = "error";
         jresult["ename"] = "Error";
         jresult["evalue"] = err.what();
-        publish_stream("stderr", err.what());
+        publish_execution_error(jresult["ename"], std::move(jresult["evalue"]));
         return jresult;
     }
 }
